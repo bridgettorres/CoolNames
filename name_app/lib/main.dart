@@ -31,45 +31,169 @@ class MyAppState extends ChangeNotifier { //MyApp state defines the data the app
     current = WordPair.random();
     notifyListeners(); //peopel who listen to me must know about this change
   }
+  var favorites = <WordPair>[]; //property getting initialized as an empty list, also specified that it can only contain wordpairs (GENERICS)
+  void toggleFavorites(){
+    if(favorites.contains(current)){
+      favorites.remove(current);
+    } else {
+      favorites.add(current);
+    }
+    notifyListeners();
+  }
   void getNewName() { //reassigns random_name with a new random Word pair
     randomname = WordPair.random();
     notifyListeners(); //peopel who listen to me must know about this change
   }
 } //wordpair comes from the package english words
 
+// ...
 
+class MyHomePage extends StatefulWidget { 
+  @override
+  State<MyHomePage> createState() => _MyHomePageState();
+}
 
-class MyHomePage extends StatelessWidget {
+class _MyHomePageState extends State<MyHomePage> { //now it can manage itself, the underscore (_) at the start of _MyHomePageState makes that class private
+  var selectedIndex = 0;
   @override
   Widget build(BuildContext context) {
-    var appState = context.watch<MyAppState>(); //I want to rebuild everytime this app state gets updated or changed
-    var pair = appState.current; 
-    return Scaffold( 
-      body: Center(
-        child: Column(  //By default, columns lump their children to the top, which is why the text is shown to be at the top of the app
-          mainAxisAlignment: MainAxisAlignment.center, //centers the children inside the column
-          children: [
-            Text('Cool Names:'),
-          //  Text(appState.current.asLowerCase), //take the current that is on top and it renders it as lowercase
-            BigCard(pair: pair),
-            SizedBox(height: 10), //adds space between card and button
-            ElevatedButton(
-              onPressed: () {
-                appState.getNext();
-              },
-              child: Text('Next'),
-            ),
-            SizedBox(height: 10),
-            ElevatedButton(
-              onPressed: (){
-                appState.getNewName();
-              },
-              child: Text('Last Name'),
-            ),
-            Text('Cool Last Names: ${appState.randomname.asLowerCase}'),
-          ],
-        ),
+    Widget page;
+    switch (selectedIndex) {
+      case 0:
+        page = GeneratorPage();
+        break;
+      case 1:
+        page = FavoritesPage();
+        break;
+      default:
+        throw UnimplementedError('no widget for $selectedIndex');
+    }
+    return LayoutBuilder(
+      builder: (context, constraints) { //callback is called every time the constraints change eg: phone rotated, user resizes page
+        return Scaffold(
+          body: Row(
+            children: [
+              SafeArea( //ensures that its child is not obscured by a hardware notch or a status bar. In this app, the widget wraps around NavigationRail to prevent the navigation buttons from being obscured by a mobile status bar.
+                child: NavigationRail(
+                  extended: constraints.maxWidth >= 600,
+                  destinations: [
+                    NavigationRailDestination(//The navigation rail has two destinations (Home and Favorites), with their respective icons and labels.
+                      icon: Icon(Icons.home),
+                      label: Text('Home'),
+                    ),
+                    NavigationRailDestination( 
+                      icon: Icon(Icons.favorite),
+                      label: Text('Favorites'),
+                    ),
+                  ],
+                  selectedIndex: selectedIndex, // It also defines the current selectedIndex. A selected index of zero selects the first destination.
+                  onDestinationSelected: (value) {
+                    setState(() {
+                      selectedIndex = value;
+                    });
+                  },
+                ),
+              ),
+              Expanded( //lets you express layouts where some children take only as much space as they need, and some widgets take as much as possible (greedy)
+                child: Container(
+                  color: Theme.of(context).colorScheme.primaryContainer, //changes the big containers color
+                  child: page,
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+    );
+  }
+}
+
+
+class GeneratorPage extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    var appState = context.watch<MyAppState>();
+    var pair = appState.current;
+
+    IconData icon;
+    if (appState.favorites.contains(pair)) {
+      icon = Icons.favorite;
+    } else {
+      icon = Icons.favorite_border;
+    }
+
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          BigCard(pair: pair),
+          SizedBox(height: 10),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ElevatedButton.icon(
+                onPressed: () {
+                  appState.toggleFavorites();
+                },
+                icon: Icon(icon),
+                label: Text('Like'),
+              ),
+              SizedBox(width: 10),
+              ElevatedButton(
+                onPressed: () {
+                  appState.getNext();
+                },
+                child: Text('Next'),
+              ),
+              SizedBox(width: 10),
+              ElevatedButton(
+                onPressed: (){
+                  appState.getNewName();
+                },
+                child: Text('More'),
+              ),
+            ],
+          ),
+          SizedBox(height: 10),
+          Text(
+            'Other: ${appState.randomname.asUpperCase}', 
+            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.pink)),
+          Icon(
+            Icons.account_circle_rounded,
+            color: Colors.pink
+          ),
+        ],
       ),
+    );
+  }
+}
+
+// ...
+
+class FavoritesPage extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    var appState = context.watch<MyAppState>();
+
+    if (appState.favorites.isEmpty) {
+      return Center(
+        child: Text('No favorites yet.'),
+      );
+    }
+
+    return ListView(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(20),
+          child: Text('You have '
+              '${appState.favorites.length} favorites:'),
+        ),
+        for (var pair in appState.favorites)
+          ListTile(
+            leading: Icon(Icons.favorite),
+            title: Text(pair.asLowerCase),
+          ),
+      ],
     );
   }
 }
